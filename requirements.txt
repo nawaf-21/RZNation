@@ -1,0 +1,26 @@
+# Core data & visualization
+pandas>=2.0.0
+numpy>=1.26.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+plotly>=5.18.0
+wordcloud>=1.9.0
+networkx>=3.2.0
+
+# NLP & ML (no PyTorch / TensorFlow — works on modern Python)
+nltk>=3.8.0
+textblob>=0.18.0
+scikit-learn>=1.4.0
+joblib>=1.3.0
+markovify>=0.9.4
+
+# Web app
+streamlit>=1.32.0
+streamlit-option-menu>=0.3.12
+
+# Music generation (MIDI; MP3 needs FluidSynth + FFmpeg on PATH)
+midiutil>=1.2.1
+# pydub removed — not used (MP3 via fluidsynth + ffmpeg only); broken on Python 3.13+ without audioop
+
+# Optional: PNG exports from visualization_demo.py
+kaleido>=0.2.1

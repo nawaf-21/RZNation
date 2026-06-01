@@ -1,0 +1,94 @@
+name: RZNation CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  smoke-test:
+    name: Install & import smoke test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download NLTK corpora
+        run: |
+          python -m textblob.download_corpora
+          python -c "import nltk; nltk.download('punkt_tab', quiet=True); nltk.download('stopwords', quiet=True); nltk.download('wordnet', quiet=True)"
+
+      - name: Syntax check all source files
+        run: |
+          python -m py_compile app.py
+          python -m py_compile src/data_loader.py
+          python -m py_compile src/preprocessor.py
+          python -m py_compile src/english_filter.py
+          python -m py_compile src/analyzer.py
+          python -m py_compile src/visualizer.py
+          python -m py_compile src/model.py
+          python -m py_compile src/generator.py
+          python -m py_compile src/music_generator.py
+          python -m py_compile verify_setup.py
+          python -m py_compile visualization_graphs.py
+
+      - name: Import smoke test
+        run: |
+          python - <<'EOF'
+          import sys
+          sys.path.insert(0, '.')
+          from src.data_loader   import LyricsDataLoader
+          from src.preprocessor  import LyricsPreprocessor
+          from src.english_filter import is_english_line, filter_english_lines
+          from src.analyzer      import LyricsAnalyzer
+          from src.visualizer    import LyricsVisualizer
+          from src.model         import LyricsModel
+          from src.music_generator import MusicGenerator, _MOOD_SETTINGS, _KEY_NAMES
+
+          # English filter sanity check
+          assert is_english_line("I love you in the morning light") is True
+          assert is_english_line("") is False
+          assert is_english_line("zxqvw kprtm lmnsq drfvb ywzxp") is False
+
+          # MusicGenerator init + quick MIDI
+          mg = MusicGenerator(require_soundfont=False)
+          for mood in ("Happy", "Sad", "Angry", "Neutral"):
+              path = mg.generate_music(mood, duration_seconds=4)
+              assert path.exists() and path.stat().st_size > 0, f"MIDI empty for {mood}"
+
+          print("All smoke tests passed.")
+          EOF
+
+      - name: Package structure check
+        run: |
+          python - <<'EOF'
+          from pathlib import Path
+          required = [
+              "app.py", "requirements.txt", "verify_setup.py",
+              "src/generator.py", "src/music_generator.py",
+              "src/english_filter.py", "src/preprocessor.py",
+              "src/data_loader.py", "src/analyzer.py",
+              "src/visualizer.py", "src/model.py",
+          ]
+          missing = [f for f in required if not Path(f).exists()]
+          assert not missing, f"Missing files: {missing}"
+          csv_files = list(Path("csv").glob("*.csv"))
+          assert len(csv_files) >= 10, f"Expected >= 10 CSV files, got {len(csv_files)}"
+          print(f"Structure OK — {len(csv_files)} artist CSVs present.")
+          EOF
